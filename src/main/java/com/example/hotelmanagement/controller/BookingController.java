@@ -7,11 +7,13 @@ import com.example.hotelmanagement.repository.RoomRepository;
 import com.example.hotelmanagement.repository.GuestRepository;
 import com.example.hotelmanagement.service.BookingService;
 import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
-import org.springframework.http.HttpStatus;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import java.time.LocalDate;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/bookings")
@@ -49,6 +51,11 @@ public class BookingController {
         booking.setRoom(room);
         booking.setGuest(guest);
         return bookingRepository.save(booking);
+    }
+
+    @GetMapping
+    public List<Booking> getAllBookings() {
+        return bookingRepository.findAll();
     }
 
     @GetMapping("/{id}")
@@ -89,11 +96,14 @@ public class BookingController {
         bookingRepository.deleteById(id);
     }
 
-    // DTO for incoming booking data
     public static class BookingRequest {
         private Long roomId;
         private Long guestId;
+
+        @JsonFormat(pattern = "yyyy-MM-dd")
         private LocalDate checkInDate;
+
+        @JsonFormat(pattern = "yyyy-MM-dd")
         private LocalDate checkOutDate;
 
         public Long getRoomId() { return roomId; }

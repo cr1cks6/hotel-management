@@ -3,9 +3,12 @@ package com.example.hotelmanagement.model;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import java.time.LocalDate;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 @Entity
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class Booking {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -16,11 +19,11 @@ public class Booking {
     @NotNull
     private LocalDate checkOutDate;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER) // ← ИЗМЕНЕНО: LAZY → EAGER
     @JoinColumn(name = "room_id")
     private Room room;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER) // ← ИЗМЕНЕНО: LAZY → EAGER
     @JoinColumn(name = "guest_id")
     private Guest guest;
 
@@ -33,6 +36,7 @@ public class Booking {
         this.checkOutDate = checkOutDate;
     }
 
+    // Геттеры и сеттеры
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
     public LocalDate getCheckInDate() { return checkInDate; }

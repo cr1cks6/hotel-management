@@ -3,9 +3,11 @@ package com.example.hotelmanagement.controller;
 import com.example.hotelmanagement.model.Guest;
 import com.example.hotelmanagement.repository.GuestRepository;
 import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
-import org.springframework.http.HttpStatus;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/guests")
@@ -20,6 +22,11 @@ public class GuestController {
     @PostMapping
     public Guest createGuest(@Valid @RequestBody Guest guest) {
         return guestRepository.save(guest);
+    }
+
+    @GetMapping
+    public List<Guest> getAllGuests() {
+        return guestRepository.findAll();
     }
 
     @GetMapping("/{id}")

@@ -7,6 +7,8 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.http.HttpStatus;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/payments")
 public class PaymentController {
@@ -22,6 +24,12 @@ public class PaymentController {
         return paymentRepository.save(payment);
     }
 
+    // ✅ ДОБАВЛЕНО: получение всех платежей
+    @GetMapping
+    public List<Payment> getAllPayments() {
+        return paymentRepository.findAll();
+    }
+
     @GetMapping("/{id}")
     public Payment getPayment(@PathVariable Long id) {
         return paymentRepository.findById(id)
@@ -33,7 +41,6 @@ public class PaymentController {
         Payment payment = paymentRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Payment not found"));
         payment.setAmount(paymentDetails.getAmount());
-        // paymentDate is auto-set on creation, not updated
         payment.setBooking(paymentDetails.getBooking());
         return paymentRepository.save(payment);
     }
