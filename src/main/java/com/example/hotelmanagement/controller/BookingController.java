@@ -1,14 +1,12 @@
 package com.example.hotelmanagement.controller;
 
-import com.example.hotelmanagement.exception.BookingConflictException;
 import com.example.hotelmanagement.model.Booking;
+import com.example.hotelmanagement.model.Payment;
+import com.example.hotelmanagement.service.HotelService;
 import com.example.hotelmanagement.repository.BookingRepository;
-import com.example.hotelmanagement.repository.RoomRepository;
-import com.example.hotelmanagement.repository.GuestRepository;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import org.springframework.http.HttpStatus;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -20,35 +18,56 @@ import java.util.List;
 @RequestMapping("/api/bookings")
 public class BookingController {
 
+    private final HotelService hotelService;
     private final BookingRepository bookingRepository;
-    private final RoomRepository roomRepository;
-    private final GuestRepository guestRepository;
 
-    public BookingController(BookingRepository bookingRepository,
-                             RoomRepository roomRepository,
-                             GuestRepository guestRepository) {
+    public BookingController(HotelService hotelService, BookingRepository bookingRepository) {
+        this.hotelService = hotelService;
         this.bookingRepository = bookingRepository;
-        this.roomRepository = roomRepository;
-        this.guestRepository = guestRepository;
     }
 
+    // =================================================================================
+    // НОВЫЕ БИЗНЕС-ОПЕРАЦИИ (Лабораторная 3)
+    // =================================================================================
+
+    // --- ОПЕРАЦИЯ 1: Бронь с депозитом ---
     @PostMapping
-    public Booking createBooking(@Valid @RequestBody BookingRequest request) {
-        var room = roomRepository.findById(request.getRoomId())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Room not found"));
-        var guest = guestRepository.findById(request.getGuestId())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Guest not found"));
-
-        validateNoOverlap(null, room.getId(), request.getCheckInDate(), request.getCheckOutDate());
-
-        Booking booking = new Booking();
-        booking.setCheckInDate(request.getCheckInDate());
-        booking.setCheckOutDate(request.getCheckOutDate());
-        booking.setRoom(room);
-        booking.setGuest(guest);
-        booking.setActive(true);
-        return bookingRepository.save(booking);
+    public Booking createBookingWithDeposit(@Valid @RequestBody BookingRequest request) {
+        try {
+            return hotelService.bookWithDeposit(
+                    request.getRoomId(),
+                    request.getGuestId(),
+                    request.getCheckInDate(),
+                    request.getCheckOutDate()
+            );
+        } catch (Exception e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage());
+        }
     }
+
+    // --- ОПЕРАЦИЯ 3: Выселение и доплата ---
+    @PostMapping("/{id}/checkout")
+    public Payment checkOut(@PathVariable Long id) {
+        try {
+            return hotelService.checkOutAndPayBalance(id);
+        } catch (Exception e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage());
+        }
+    }
+
+    // --- ОПЕРАЦИЯ 4: Переселение ---
+    @PostMapping("/{id}/relocate")
+    public Booking relocate(@PathVariable Long id, @RequestParam Long newRoomId) {
+        try {
+            return hotelService.relocateGuest(id, newRoomId);
+        } catch (Exception e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage());
+        }
+    }
+
+    // =================================================================================
+    // СТАНДАРТНЫЕ CRUD МЕТОДЫ (Вернул их обратно)
+    // =================================================================================
 
     @GetMapping
     public List<Booking> getAllBookings() {
@@ -61,26 +80,7 @@ public class BookingController {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Booking not found"));
     }
 
-    @PutMapping("/{id}")
-    @Transactional
-    public Booking updateBooking(@PathVariable Long id, @Valid @RequestBody BookingRequest request) {
-        Booking booking = bookingRepository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Booking not found"));
-
-        var room = roomRepository.findById(request.getRoomId())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Room not found"));
-        var guest = guestRepository.findById(request.getGuestId())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Guest not found"));
-
-        validateNoOverlap(id, room.getId(), request.getCheckInDate(), request.getCheckOutDate());
-
-        booking.setCheckInDate(request.getCheckInDate());
-        booking.setCheckOutDate(request.getCheckOutDate());
-        booking.setRoom(room);
-        booking.setGuest(guest);
-        return bookingRepository.save(booking);
-    }
-
+    // ВОТ МЕТОД, КОТОРЫЙ ПРОПАЛ (Удаление)
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteBooking(@PathVariable Long id) {
@@ -90,54 +90,20 @@ public class BookingController {
         bookingRepository.deleteById(id);
     }
 
-    private void validateNoOverlap(Long excludeBookingId, Long roomId, LocalDate checkIn, LocalDate checkOut) {
-        if (checkIn == null || checkOut == null) {
-            throw new IllegalArgumentException("Check-in and check-out dates must not be null");
-        }
-
-        List<Booking> existingBookings = bookingRepository.findByRoomIdAndActiveTrue(roomId);
-        for (Booking b : existingBookings) {
-            if (excludeBookingId != null && b.getId().equals(excludeBookingId)) {
-                continue;
-            }
-
-            // Защита от null в существующих бронях
-            if (b.getCheckInDate() == null || b.getCheckOutDate() == null) {
-                continue; // или можно выбросить ошибку — зависит от политики
-            }
-
-            // Пересечение: если новые даты НЕ полностью до или после старых
-            if (!checkOut.isBefore(b.getCheckInDate()) && !checkIn.isAfter(b.getCheckOutDate())) {
-                throw new BookingConflictException(
-                        "Booking overlaps with existing booking (ID: " + b.getId() + ") for room " + roomId
-                );
-            }
-        }
-    }
-
+    // =================================================================================
+    // DTO
+    // =================================================================================
     public static class BookingRequest {
-        @NotNull(message = "roomId is required")
-        private Long roomId;
-
-        @NotNull(message = "guestId is required")
-        private Long guestId;
-
+        @NotNull private Long roomId;
+        @NotNull private Long guestId;
         @JsonFormat(pattern = "yyyy-MM-dd")
-        @NotNull(message = "checkInDate is required")
-        private LocalDate checkInDate;
-
+        @NotNull private LocalDate checkInDate;
         @JsonFormat(pattern = "yyyy-MM-dd")
-        @NotNull(message = "checkOutDate is required")
-        private LocalDate checkOutDate;
+        @NotNull private LocalDate checkOutDate;
 
-        // Геттеры и сеттеры
         public Long getRoomId() { return roomId; }
-        public void setRoomId(Long roomId) { this.roomId = roomId; }
         public Long getGuestId() { return guestId; }
-        public void setGuestId(Long guestId) { this.guestId = guestId; }
         public LocalDate getCheckInDate() { return checkInDate; }
-        public void setCheckInDate(LocalDate checkInDate) { this.checkInDate = checkInDate; }
         public LocalDate getCheckOutDate() { return checkOutDate; }
-        public void setCheckOutDate(LocalDate checkOutDate) { this.checkOutDate = checkOutDate; }
     }
 }

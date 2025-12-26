@@ -1,6 +1,7 @@
 package com.example.hotelmanagement.controller;
 
 import com.example.hotelmanagement.model.Hotel;
+import com.example.hotelmanagement.service.HotelService;
 import com.example.hotelmanagement.repository.HotelRepository;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
@@ -8,16 +9,31 @@ import org.springframework.web.server.ResponseStatusException;
 import org.springframework.http.HttpStatus;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/hotels")
 public class HotelController {
 
     private final HotelRepository hotelRepository;
+    private final HotelService hotelService;
 
-    public HotelController(HotelRepository hotelRepository) {
+    public HotelController(HotelRepository hotelRepository, HotelService hotelService) {
         this.hotelRepository = hotelRepository;
+        this.hotelService = hotelService;
     }
+
+    // ==========================================
+    // НОВАЯ БИЗНЕС-ОПЕРАЦИЯ (№5)
+    // ==========================================
+    @GetMapping("/{id}/report")
+    public Map<String, Object> getReport(@PathVariable Long id) {
+        return hotelService.getHotelFinancialReport(id);
+    }
+
+    // ==========================================
+    // СТАРЫЕ CRUD МЕТОДЫ
+    // ==========================================
 
     @PostMapping
     public Hotel createHotel(@Valid @RequestBody Hotel hotel) {
@@ -44,6 +60,7 @@ public class HotelController {
         return hotelRepository.save(hotel);
     }
 
+    // ВОТ МЕТОД, КОТОРЫЙ ПРОПАЛ
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteHotel(@PathVariable Long id) {
