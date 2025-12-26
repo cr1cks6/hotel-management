@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 @Entity
 public class Payment {
@@ -16,8 +17,9 @@ public class Payment {
 
     private LocalDateTime paymentDate = LocalDateTime.now();
 
-    @OneToOne
-    @JoinColumn(name = "booking_id")
+    @OneToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "booking_id", nullable = false)
+    @JsonIgnore // ← КРИТИЧЕСКИ ВАЖНО: предотвращает бесконечную сериализацию
     private Booking booking;
 
     public Payment() {}
@@ -26,6 +28,7 @@ public class Payment {
         this.amount = amount;
     }
 
+    // Геттеры и сеттеры
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
     public BigDecimal getAmount() { return amount; }
