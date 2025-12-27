@@ -10,6 +10,23 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
+    # --- ЭТОТ БЛОК СОЗДАЕТ БАЗУ ДАННЫХ В GITHUB ---
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: hotel_db
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: password
+        ports:
+          - 5432:5432
+        # Ждем, пока база загрузится, прежде чем запускать тесты
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -21,20 +38,22 @@ jobs:
           distribution: 'temurin'
           cache: 'maven'
 
-      # 1. ВОССТАНАВЛИВАЕМ КЛЮЧ ИЗ СЕКРЕТОВ (Требование задания)
+      # Расшифровываем ваш сертификат (как требовалось в задании)
       - name: Decode Keystore
         run: |
-          # Декодируем base64 строку обратно в файл
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > src/main/resources/hotel-server.jks
 
-      # 2. СБОРКА И ТЕСТИРОВАНИЕ
-      # Мы убрали -DskipTests. Теперь maven запустит тесты.
-      # Важно: Чтобы тесты прошли, либо удалите папку src/test,
-      # либо убедитесь, что тесты не требуют реальной БД.
+      # --- ЗАПУСК ТЕСТОВ ---
       - name: Build with Maven
         run: mvn -B package --file pom.xml
         env:
-          # Передаем пароль от ключа в переменную окружения (если используете её в application.properties)
+          # Тут мы говорим Spring Boot подключиться к базе, которую создали выше
+          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/hotel_db
+          SPRING_DATASOURCE_USERNAME: postgres
+          SPRING_DATASOURCE_PASSWORD: password
+          # Разрешаем Hibernate создать таблицы для теста
+          SPRING_JPA_HIBERNATE_DDL_AUTO: create-drop
+          # Пароль от вашего сертификата
           SERVER_SSL_KEY_STORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
 
       - name: Upload Artifact
