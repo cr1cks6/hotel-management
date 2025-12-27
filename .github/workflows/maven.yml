@@ -10,7 +10,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
-    # --- ЭТОТ БЛОК СОЗДАЕТ БАЗУ ДАННЫХ В GITHUB ---
+    # Настройки базы данных для тестов
     services:
       postgres:
         image: postgres:16
@@ -20,12 +20,19 @@ jobs:
           POSTGRES_PASSWORD: password
         ports:
           - 5432:5432
-        # Ждем, пока база загрузится, прежде чем запускать тесты
         options: >-
           --health-cmd pg_isready
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+
+    # Эти переменные будут доступны во ВСЕХ шагах ниже
+    env:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/hotel_db
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: password
+      SPRING_JPA_HIBERNATE_DDL_AUTO: create-drop
+      SERVER_SSL_KEY_STORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
 
     steps:
       - name: Checkout code
@@ -38,23 +45,18 @@ jobs:
           distribution: 'temurin'
           cache: 'maven'
 
-      # Расшифровываем ваш сертификат (как требовалось в задании)
       - name: Decode Keystore
         run: |
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > src/main/resources/hotel-server.jks
 
-      # --- ЗАПУСК ТЕСТОВ ---
-      - name: Build with Maven
-        run: mvn -B package --file pom.xml
-        env:
-          # Тут мы говорим Spring Boot подключиться к базе, которую создали выше
-          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/hotel_db
-          SPRING_DATASOURCE_USERNAME: postgres
-          SPRING_DATASOURCE_PASSWORD: password
-          # Разрешаем Hibernate создать таблицы для теста
-          SPRING_JPA_HIBERNATE_DDL_AUTO: create-drop
-          # Пароль от вашего сертификата
-          SERVER_SSL_KEY_STORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+      # --- ВОТ ВАШ ОТДЕЛЬНЫЙ ШАГ С ТЕСТАМИ ---
+      # Он появится в списке как "Run Tests"
+      - name: Run Tests
+        run: mvn -B test --file pom.xml
+
+      # --- СБОРКА JAR (без повторного запуска тестов, чтобы не тратить время) ---
+      - name: Build JAR
+        run: mvn -B package -DskipTests --file pom.xml
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
