@@ -1,9 +1,9 @@
 package com.example.hotelmanagement.controller;
 
-import com.example.hotelmanagement.model.Payment;
 import com.example.hotelmanagement.model.Booking;
-import com.example.hotelmanagement.repository.PaymentRepository;
+import com.example.hotelmanagement.model.Payment;
 import com.example.hotelmanagement.repository.BookingRepository;
+import com.example.hotelmanagement.repository.PaymentRepository;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import org.springframework.http.HttpStatus;
@@ -20,45 +20,9 @@ public class PaymentController {
     private final PaymentRepository paymentRepository;
     private final BookingRepository bookingRepository;
 
-    public PaymentController(PaymentRepository paymentRepository,
-                             BookingRepository bookingRepository) {
+    public PaymentController(PaymentRepository paymentRepository, BookingRepository bookingRepository) {
         this.paymentRepository = paymentRepository;
         this.bookingRepository = bookingRepository;
-    }
-
-    public static class PaymentCreateRequest {
-        @NotNull
-        private BigDecimal amount;
-        @NotNull
-        private Long bookingId;
-
-        public BigDecimal getAmount() { return amount; }
-        public void setAmount(BigDecimal amount) { this.amount = amount; }
-        public Long getBookingId() { return bookingId; }
-        public void setBookingId(Long bookingId) { this.bookingId = bookingId; }
-    }
-
-    public static class PaymentUpdateRequest {
-        @NotNull
-        private BigDecimal amount;
-        @NotNull
-        private Long bookingId;
-
-        public BigDecimal getAmount() { return amount; }
-        public void setAmount(BigDecimal amount) { this.amount = amount; }
-        public Long getBookingId() { return bookingId; }
-        public void setBookingId(Long bookingId) { this.bookingId = bookingId; }
-    }
-
-    @PostMapping
-    public Payment createPayment(@Valid @RequestBody PaymentCreateRequest request) {
-        Booking booking = bookingRepository.findById(request.getBookingId())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Booking not found"));
-
-        Payment payment = new Payment();
-        payment.setAmount(request.getAmount());
-        payment.setBooking(booking);
-        return paymentRepository.save(payment);
     }
 
     @GetMapping
@@ -66,31 +30,29 @@ public class PaymentController {
         return paymentRepository.findAll();
     }
 
-    @GetMapping("/{id}")
-    public Payment getPayment(@PathVariable Long id) {
-        return paymentRepository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Payment not found"));
-    }
-
-    @PutMapping("/{id}")
-    public Payment updatePayment(@PathVariable Long id, @Valid @RequestBody PaymentUpdateRequest request) {
-        Payment payment = paymentRepository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Payment not found"));
-
+    @PostMapping
+    public Payment createPayment(@Valid @RequestBody PaymentRequest request) {
+        // Ищем бронь. Если нет - 404 Not Found
         Booking booking = bookingRepository.findById(request.getBookingId())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Booking not found"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Booking not found with id: " + request.getBookingId()));
 
+        Payment payment = new Payment();
         payment.setAmount(request.getAmount());
         payment.setBooking(booking);
+
         return paymentRepository.save(payment);
     }
 
-    @DeleteMapping("/{id}")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void deletePayment(@PathVariable Long id) {
-        if (!paymentRepository.existsById(id)) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Payment not found");
-        }
-        paymentRepository.deleteById(id);
+    // DTO для запроса
+    public static class PaymentRequest {
+        @NotNull
+        private BigDecimal amount;
+        @NotNull
+        private Long bookingId;
+
+        public BigDecimal getAmount() { return amount; }
+        public void setAmount(BigDecimal amount) { this.amount = amount; }
+        public Long getBookingId() { return bookingId; }
+        public void setBookingId(Long bookingId) { this.bookingId = bookingId; }
     }
 }

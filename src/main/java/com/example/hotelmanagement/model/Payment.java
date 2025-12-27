@@ -1,25 +1,27 @@
 package com.example.hotelmanagement.model;
 
 import jakarta.persistence.*;
-import jakarta.validation.constraints.NotNull;
+import com.fasterxml.jackson.annotation.JsonIgnore; // Важный импорт
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import com.fasterxml.jackson.annotation.JsonIgnore;
 
 @Entity
+@Table(name = "payments")
 public class Payment {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @NotNull
+    @Column(nullable = false)
     private BigDecimal amount;
 
     private LocalDateTime paymentDate = LocalDateTime.now();
 
-    @OneToOne(fetch = FetchType.LAZY, optional = false)
+    // Связь с бронированием
+    @ManyToOne
     @JoinColumn(name = "booking_id", nullable = false)
-    @JsonIgnore // ← КРИТИЧЕСКИ ВАЖНО: предотвращает бесконечную сериализацию
+    @JsonIgnore // <--- ЭТА СТРОКА ОБЯЗАТЕЛЬНА! Она предотвращает ошибку 500
     private Booking booking;
 
     public Payment() {}
