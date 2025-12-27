@@ -21,15 +21,21 @@ jobs:
           distribution: 'temurin'
           cache: 'maven'
 
-      # Блок с Keystore закомментирован, так как при пропуске тестов он не нужен для сборки.
-      # Если вы захотите включить тесты позже, вам нужно будет добавить секрет KEYSTORE_BASE64 в настройках GitHub.
-      # - name: Decode Keystore
-      #   run: |
-      #     echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > src/main/resources/hotel-server.jks
+      # 1. ВОССТАНАВЛИВАЕМ КЛЮЧ ИЗ СЕКРЕТОВ (Требование задания)
+      - name: Decode Keystore
+        run: |
+          # Декодируем base64 строку обратно в файл
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > src/main/resources/hotel-server.jks
 
+      # 2. СБОРКА И ТЕСТИРОВАНИЕ
+      # Мы убрали -DskipTests. Теперь maven запустит тесты.
+      # Важно: Чтобы тесты прошли, либо удалите папку src/test,
+      # либо убедитесь, что тесты не требуют реальной БД.
       - name: Build with Maven
-        # Добавлено -DskipTests, чтобы сборка не падала из-за отсутствия базы данных на сервере GitHub
-        run: mvn -B package --file pom.xml -DskipTests
+        run: mvn -B package --file pom.xml
+        env:
+          # Передаем пароль от ключа в переменную окружения (если используете её в application.properties)
+          SERVER_SSL_KEY_STORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
