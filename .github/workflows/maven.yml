@@ -1,0 +1,43 @@
+name: Java CI with Maven
+
+on:
+  push:
+    branches: [ "main", "lab_6" ]
+  pull_request:
+    branches: [ "main", "lab_6" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v3
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache:maven: true
+
+      # Декодируем Keystore из секретов обратно в файл перед сборкой
+      - name: Decode Keystore
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > src/main/resources/hotel-server.jks
+
+      # Запускаем сборку и тесты
+      # Передаем пароль от keystore и от БД (для тестов используем H2 или моки, но тут пример передачи)
+      - name: Build with Maven
+        run: mvn -B package --file pom.xml
+        env:
+          DB_USERNAME: postgres
+          DB_PASSWORD: password
+          # Если бы мы использовали пароль keystore из переменной, то так:
+          # SERVER_SSL_KEY_STORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+
+      # Загружаем собранный JAR файл как артефакт (чтобы можно было скачать)
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: hotel-app-jar
+          path: target/*.jar
